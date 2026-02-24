@@ -27,8 +27,9 @@ foreach ($i in 0..($tests.Count - 1)) {
         continue
     }
 
-    # Clean slate: logs, generated configs, shader caches
+    # Clean slate: logs, dummy rec file, generated configs, shader caches
     Remove-Item logs\retroarch.log          -ErrorAction SilentlyContinue
+    Remove-Item rec.mkv                     -ErrorAction SilentlyContinue
     Remove-Item retroarch.cfg               -ErrorAction SilentlyContinue
     Remove-Item config -Recurse -Force      -ErrorAction SilentlyContinue
     Remove-Item system\pcsx2\cache -Recurse -Force -ErrorAction SilentlyContinue
@@ -97,6 +98,7 @@ foreach ($i in 0..($tests.Count - 1)) {
 }
 
 # Final cleanup
+Remove-Item rec.mkv       -ErrorAction SilentlyContinue
 Remove-Item retroarch.cfg -ErrorAction SilentlyContinue
 
 Write-Host "=== All CLI tests complete ===" -ForegroundColor Cyan

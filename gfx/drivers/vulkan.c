@@ -3702,7 +3702,7 @@ static void vulkan_init_readback(vk_t *vk, bool video_gpu_record)
 {
    /* Only bother with this if we're doing GPU recording.
     * Check rec_st->enable and not driver.recording_data,
-    * because recording is not initialized yet. 
+    * because recording is not initialized yet.
     */
    recording_state_t *rec_st = recording_state_get_ptr();
 

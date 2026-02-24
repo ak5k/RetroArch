@@ -3702,11 +3702,11 @@ static void vulkan_init_readback(vk_t *vk, bool video_gpu_record)
 {
    /* Only bother with this if we're doing GPU recording.
     * Check rec_st->enable and not driver.recording_data,
-    * because recording is not initialized yet.
-    */
+    * because recording is not initialized yet. */
    recording_state_t *rec_st = recording_state_get_ptr();
 
-   if (!(video_gpu_record && rec_st->enable))
+   if (!(  (video_gpu_record || video_driver_is_hw_context())
+         && rec_st->enable))
    {
       vk->flags                       &= ~VK_FLAG_READBACK_STREAMED;
       return;
@@ -6260,16 +6260,12 @@ static bool vulkan_read_viewport(void *data, uint8_t *buffer, bool is_idle)
        || (unsigned)vk->readback.scaler_bgr.in_width  != vk->vp.width
        || (unsigned)vk->readback.scaler_bgr.in_height != vk->vp.height)
    {
-      settings_t *settings = config_get_ptr();
-      if (settings && settings->bools.video_gpu_record)
+      recording_state_t *rec_st = recording_state_get_ptr();
+      if (rec_st && rec_st->enable)
       {
-         recording_state_t *rec_st = recording_state_get_ptr();
-         if (rec_st && rec_st->enable)
-         {
-            vulkan_init_readback(vk, true);
-            if (vk->flags & VK_FLAG_READBACK_STREAMED)
-               RARCH_LOG("[Vulkan] (Re)initialized async readback for recording.\n");
-         }
+         vulkan_init_readback(vk, true);
+         if (vk->flags & VK_FLAG_READBACK_STREAMED)
+            RARCH_LOG("[Vulkan] (Re)initialized async readback for recording.\n");
       }
    }
 

@@ -2971,7 +2971,7 @@ static void *gl3_init(const video_info_t *video,
             video->is_threaded,
             FONT_DRIVER_RENDER_OPENGL_CORE_API);
 
-   if (video_gpu_record
+   if (  (video_gpu_record || video_driver_is_hw_context())
       && recording_state_get_ptr()->enable)
    {
       gl->flags |=  GL3_FLAG_PBO_READBACK_ENABLE;
@@ -3376,19 +3376,15 @@ static bool gl3_read_viewport(void *data, uint8_t *buffer, bool is_idle)
        || (unsigned)gl->pbo_readback_scaler.in_width  != gl->vp.width
        || (unsigned)gl->pbo_readback_scaler.in_height != gl->vp.height)
    {
-      settings_t *settings = config_get_ptr();
-      if (settings && settings->bools.video_gpu_record)
+      recording_state_t *rec_st = recording_state_get_ptr();
+      if (rec_st && rec_st->enable)
       {
-         recording_state_t *rec_st = recording_state_get_ptr();
-         if (rec_st && rec_st->enable)
-         {
-            /* Tear down old PBO resources before reinitializing */
-            if (gl->flags & GL3_FLAG_PBO_READBACK_ENABLE)
-               gl3_deinit_pbo_readback(gl);
-            gl->flags |= GL3_FLAG_PBO_READBACK_ENABLE;
-            if (gl3_init_pbo_readback(gl))
-               RARCH_LOG("[GLCore] (Re)initialized async PBO readback for recording.\n");
-         }
+         /* Tear down old PBO resources before reinitializing */
+         if (gl->flags & GL3_FLAG_PBO_READBACK_ENABLE)
+            gl3_deinit_pbo_readback(gl);
+         gl->flags |= GL3_FLAG_PBO_READBACK_ENABLE;
+         if (gl3_init_pbo_readback(gl))
+            RARCH_LOG("[GLCore] (Re)initialized async PBO readback for recording.\n");
       }
    }
 

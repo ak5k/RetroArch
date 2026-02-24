@@ -484,6 +484,15 @@ static bool ffmpeg_init_video(ffmpeg_t *handle)
    param->out_width  = (float)param->out_width  * params->scale_factor;
    param->out_height = (float)param->out_height * params->scale_factor;
 
+   /* Ensure even dimensions for chroma-subsampled pixel formats.
+    * Odd dimensions cause encoder init failure with e.g. libx264. */
+   if (     video->pix_fmt == AV_PIX_FMT_YUV420P
+         || video->pix_fmt == AV_PIX_FMT_YUV422P)
+   {
+      param->out_width  &= ~1;
+      param->out_height &= ~1;
+   }
+
    video->codec->codec_type          = AVMEDIA_TYPE_VIDEO;
    video->codec->width               = param->out_width;
    video->codec->height              = param->out_height;
@@ -1253,36 +1262,51 @@ static bool encode_video(ffmpeg_t *handle, AVFrame *frame)
 static void ffmpeg_scale_input(ffmpeg_t *handle,
       const struct record_video_data *vid)
 {
-   /* Attempt to preserve more information if we scale down. */
-   bool shrunk = handle->params.out_width < vid->width
-      || handle->params.out_height < vid->height;
+   /* Clamp source to even dimensions for chroma-subsampled formats
+    * so that source matches the even-aligned output and sws_scale
+    * does a 1:1 copy (crop) instead of a sub-pixel downscale. */
+   unsigned src_w = vid->width;
+   unsigned src_h = vid->height;
 
-   if (handle->video.use_sws)
+   if (     handle->video.pix_fmt == AV_PIX_FMT_YUV420P
+         || handle->video.pix_fmt == AV_PIX_FMT_YUV422P)
    {
-      int linesize      = vid->pitch;
-
-      handle->video.sws = sws_getCachedContext(handle->video.sws,
-            vid->width, vid->height, handle->video.in_pix_fmt,
-            handle->params.out_width, handle->params.out_height,
-            handle->video.pix_fmt,
-            shrunk ? SWS_BILINEAR : SWS_POINT, NULL, NULL, NULL);
-
-      sws_scale(handle->video.sws, (const uint8_t* const*)&vid->data,
-            &linesize, 0, vid->height, handle->video.conv_frame->data,
-            handle->video.conv_frame->linesize);
+      src_w &= ~1;
+      src_h &= ~1;
    }
-   else
-      video_frame_record_scale(
-            &handle->video.scaler,
-            handle->video.conv_frame->data[0],
-            vid->data,
-            handle->params.out_width,
-            handle->params.out_height,
-            handle->video.conv_frame->linesize[0],
-            vid->width,
-            vid->height,
-            vid->pitch,
-            shrunk);
+
+   /* Attempt to preserve more information if we scale down. */
+   {
+      bool shrunk = handle->params.out_width < src_w
+         || handle->params.out_height < src_h;
+
+      if (handle->video.use_sws)
+      {
+         int linesize      = vid->pitch;
+
+         handle->video.sws = sws_getCachedContext(handle->video.sws,
+               src_w, src_h, handle->video.in_pix_fmt,
+               handle->params.out_width, handle->params.out_height,
+               handle->video.pix_fmt,
+               shrunk ? SWS_BILINEAR : SWS_POINT, NULL, NULL, NULL);
+
+         sws_scale(handle->video.sws, (const uint8_t* const*)&vid->data,
+               &linesize, 0, src_h, handle->video.conv_frame->data,
+               handle->video.conv_frame->linesize);
+      }
+      else
+         video_frame_record_scale(
+               &handle->video.scaler,
+               handle->video.conv_frame->data[0],
+               vid->data,
+               handle->params.out_width,
+               handle->params.out_height,
+               handle->video.conv_frame->linesize[0],
+               src_w,
+               src_h,
+               vid->pitch,
+               shrunk);
+   }
 }
 
 static bool ffmpeg_push_video_thread(ffmpeg_t *handle,

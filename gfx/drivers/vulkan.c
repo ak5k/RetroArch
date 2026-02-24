@@ -5482,6 +5482,13 @@ static bool vulkan_frame(void *data, const void *frame,
          && (vk->context->flags & VK_CTX_FLAG_HAS_ACQUIRED_SWAPCHAIN)
       )
    {
+      /* If streamed readback is active but recording has stopped
+       * (e.g. auto-terminated on resize), clear the flag to avoid
+       * stale readback ops that can cause VK_ERROR_DEVICE_LOST. */
+      if (  (vk->flags & VK_FLAG_READBACK_STREAMED)
+          && !recording_state_get_ptr()->enable)
+         vk->flags &= ~VK_FLAG_READBACK_STREAMED;
+
       if (     (vk->flags & VK_FLAG_READBACK_PENDING)
              || (vk->flags & VK_FLAG_READBACK_STREAMED))
       {
@@ -6246,6 +6253,25 @@ static bool vulkan_read_viewport(void *data, uint8_t *buffer, bool is_idle)
 
    if (!vk)
       return false;
+
+   /* Lazy init / reinit: (re)initialize streamed readback when recording
+    * starts after driver init, or when viewport dimensions change. */
+   if (  !(vk->flags & VK_FLAG_READBACK_STREAMED)
+       || (unsigned)vk->readback.scaler_bgr.in_width  != vk->vp.width
+       || (unsigned)vk->readback.scaler_bgr.in_height != vk->vp.height)
+   {
+      settings_t *settings = config_get_ptr();
+      if (settings && settings->bools.video_gpu_record)
+      {
+         recording_state_t *rec_st = recording_state_get_ptr();
+         if (rec_st && rec_st->enable)
+         {
+            vulkan_init_readback(vk, true);
+            if (vk->flags & VK_FLAG_READBACK_STREAMED)
+               RARCH_LOG("[Vulkan] (Re)initialized async readback for recording.\n");
+         }
+      }
+   }
 
    staging = &vk->readback.staging[vk->context->current_frame_index];
 

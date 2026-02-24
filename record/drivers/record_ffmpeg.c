@@ -1263,8 +1263,7 @@ static void ffmpeg_scale_input(ffmpeg_t *handle,
       const struct record_video_data *vid)
 {
    /* Clamp source to even dimensions for chroma-subsampled formats
-    * so that source matches the even-aligned output and sws_scale
-    * does a 1:1 copy (crop) instead of a sub-pixel downscale. */
+    * so that source matches the even-aligned output. */
    unsigned src_w = vid->width;
    unsigned src_h = vid->height;
 

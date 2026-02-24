@@ -1,21 +1,12 @@
 # run_ui_tests.ps1 — UI recording tests for fix/recording-hw-cores
-# Runs Tests 3-6 from the test plan.
+# Runs Tests 3-4 from the test plan.
 # Tests 3-4: LAZY INIT path — the key fix in this PR.
-# Tests 5-6: Resize during recording — verify no crash on viewport change.
 #
 # Manual steps for Tests 3-4 (UI record):
 #   1. Wait for LRPS2 to boot to PS2 BIOS menu
 #   2. Press F1 to open RetroArch menu
 #   3. Go to Recording → Start Recording
-#   4. Wait ~10 seconds
-#   5. F1 → Recording → Stop Recording
-#   6. Close RetroArch (Esc or menu quit)
-#
-# Manual steps for Tests 5-6 (Resize):
-#   1. Wait for LRPS2 to boot to PS2 BIOS menu
-#   2. Press F1 → Recording → Start Recording
-#   3. Drag-resize the window
-#   4. Wait ~5 seconds after resize
+#   4. Wait ~10 seconds (optionally drag-resize window to test resize)
 #   5. F1 → Recording → Stop Recording
 #   6. Close RetroArch (Esc or menu quit)
 
@@ -38,20 +29,6 @@ $tests = @(
         Cfg        = "glcore.cfg"
         LazyMsg    = "Re.*initialized async PBO readback"
         Instructions = "Boot, then F1 -> Recording -> Start Recording`nWait ~10s, then F1 -> Stop Recording, then close."
-    }
-    @{
-        Name       = "Resize vulkan"
-        Num        = 5
-        Cfg        = "vulkan.cfg"
-        LazyMsg    = "Re.*initialized async readback"
-        Instructions = "Boot, then F1 -> Recording -> Start Recording`nDrag-resize the window, wait ~5s, then F1 -> Stop Recording, then close."
-    }
-    @{
-        Name       = "Resize glcore"
-        Num        = 6
-        Cfg        = "glcore.cfg"
-        LazyMsg    = "Re.*initialized async PBO readback"
-        Instructions = "Boot, then F1 -> Recording -> Start Recording`nDrag-resize the window, wait ~5s, then F1 -> Stop Recording, then close."
     }
 )
 

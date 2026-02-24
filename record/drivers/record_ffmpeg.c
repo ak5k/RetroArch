@@ -485,12 +485,13 @@ static bool ffmpeg_init_video(ffmpeg_t *handle)
    param->out_height = (float)param->out_height * params->scale_factor;
 
    /* Ensure even dimensions for chroma-subsampled pixel formats.
-    * Odd dimensions cause encoder init failure with e.g. libx264. */
+    * Odd dimensions cause encoder init failure with e.g. libx264.
+    * Round up (pad) rather than down so no source pixels are lost. */
    if (     video->pix_fmt == AV_PIX_FMT_YUV420P
          || video->pix_fmt == AV_PIX_FMT_YUV422P)
    {
-      param->out_width  &= ~1;
-      param->out_height &= ~1;
+      param->out_width  = (param->out_width  + 1) & ~1;
+      param->out_height = (param->out_height + 1) & ~1;
    }
 
    video->codec->codec_type          = AVMEDIA_TYPE_VIDEO;
@@ -529,6 +530,9 @@ static bool ffmpeg_init_video(ffmpeg_t *handle)
    size = av_image_get_buffer_size(video->pix_fmt, param->out_width,
          param->out_height, 1);
    video->conv_frame_buf   = (uint8_t*)av_malloc(size);
+   /* Zero the buffer so padding pixels (from rounding odd dimensions
+    * up to even) are black rather than uninitialized. */
+   memset(video->conv_frame_buf, 0, size);
    video->conv_frame       = av_frame_alloc();
 
    AVFrame* frame = video->conv_frame;
@@ -1262,50 +1266,36 @@ static bool encode_video(ffmpeg_t *handle, AVFrame *frame)
 static void ffmpeg_scale_input(ffmpeg_t *handle,
       const struct record_video_data *vid)
 {
-   /* Clamp source to even dimensions for chroma-subsampled formats
-    * so that source matches the even-aligned output. */
-   unsigned src_w = vid->width;
-   unsigned src_h = vid->height;
-
-   if (     handle->video.pix_fmt == AV_PIX_FMT_YUV420P
-         || handle->video.pix_fmt == AV_PIX_FMT_YUV422P)
-   {
-      src_w &= ~1;
-      src_h &= ~1;
-   }
-
    /* Attempt to preserve more information if we scale down. */
+   bool shrunk = handle->params.out_width < vid->width
+      || handle->params.out_height < vid->height;
+
+   if (handle->video.use_sws)
    {
-      bool shrunk = handle->params.out_width < src_w
-         || handle->params.out_height < src_h;
+      int linesize      = vid->pitch;
 
-      if (handle->video.use_sws)
-      {
-         int linesize      = vid->pitch;
+      handle->video.sws = sws_getCachedContext(handle->video.sws,
+            vid->width, vid->height, handle->video.in_pix_fmt,
+            handle->params.out_width, handle->params.out_height,
+            handle->video.pix_fmt,
+            shrunk ? SWS_BILINEAR : SWS_POINT, NULL, NULL, NULL);
 
-         handle->video.sws = sws_getCachedContext(handle->video.sws,
-               src_w, src_h, handle->video.in_pix_fmt,
-               handle->params.out_width, handle->params.out_height,
-               handle->video.pix_fmt,
-               shrunk ? SWS_BILINEAR : SWS_POINT, NULL, NULL, NULL);
-
-         sws_scale(handle->video.sws, (const uint8_t* const*)&vid->data,
-               &linesize, 0, src_h, handle->video.conv_frame->data,
-               handle->video.conv_frame->linesize);
-      }
-      else
-         video_frame_record_scale(
-               &handle->video.scaler,
-               handle->video.conv_frame->data[0],
-               vid->data,
-               handle->params.out_width,
-               handle->params.out_height,
-               handle->video.conv_frame->linesize[0],
-               src_w,
-               src_h,
-               vid->pitch,
-               shrunk);
+      sws_scale(handle->video.sws, (const uint8_t* const*)&vid->data,
+            &linesize, 0, vid->height, handle->video.conv_frame->data,
+            handle->video.conv_frame->linesize);
    }
+   else
+      video_frame_record_scale(
+            &handle->video.scaler,
+            handle->video.conv_frame->data[0],
+            vid->data,
+            handle->params.out_width,
+            handle->params.out_height,
+            handle->video.conv_frame->linesize[0],
+            vid->width,
+            vid->height,
+            vid->pitch,
+            shrunk);
 }
 
 static bool ffmpeg_push_video_thread(ffmpeg_t *handle,

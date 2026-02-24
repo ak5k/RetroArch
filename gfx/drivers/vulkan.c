@@ -3705,8 +3705,7 @@ static void vulkan_init_readback(vk_t *vk, bool video_gpu_record)
     * because recording is not initialized yet. */
    recording_state_t *rec_st = recording_state_get_ptr();
 
-   if (!(  (video_gpu_record || video_driver_is_hw_context())
-         && rec_st->enable))
+   if (!(video_gpu_record && rec_st->enable))
    {
       vk->flags                       &= ~VK_FLAG_READBACK_STREAMED;
       return;

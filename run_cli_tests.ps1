@@ -12,6 +12,10 @@ $tests = @(
     @{ Name = "CLI glcore"; Cfg = "glcore.cfg"; LogPattern = "glcore" }
 )
 
+# --- Initial cleanup: remove old recordings ---
+Remove-Item recordings\*.mkv -ErrorAction SilentlyContinue
+Remove-Item rec.mkv          -ErrorAction SilentlyContinue
+
 Write-Host ""
 
 # --- Run each test ---

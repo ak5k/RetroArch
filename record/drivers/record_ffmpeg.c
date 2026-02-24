@@ -1266,9 +1266,17 @@ static bool encode_video(ffmpeg_t *handle, AVFrame *frame)
 static void ffmpeg_scale_input(ffmpeg_t *handle,
       const struct record_video_data *vid)
 {
+   /* When output was padded to even dimensions, clamp the scaling
+    * destination to the source size so pixels are copied 1:1 and the
+    * extra padding column/row stays black (buffer zeroed on init). */
+   unsigned dst_w = (vid->width < handle->params.out_width)
+      ? vid->width : handle->params.out_width;
+   unsigned dst_h = (vid->height < handle->params.out_height)
+      ? vid->height : handle->params.out_height;
+
    /* Attempt to preserve more information if we scale down. */
-   bool shrunk = handle->params.out_width < vid->width
-      || handle->params.out_height < vid->height;
+   bool shrunk = dst_w < vid->width
+      || dst_h < vid->height;
 
    if (handle->video.use_sws)
    {
@@ -1276,7 +1284,7 @@ static void ffmpeg_scale_input(ffmpeg_t *handle,
 
       handle->video.sws = sws_getCachedContext(handle->video.sws,
             vid->width, vid->height, handle->video.in_pix_fmt,
-            handle->params.out_width, handle->params.out_height,
+            dst_w, dst_h,
             handle->video.pix_fmt,
             shrunk ? SWS_BILINEAR : SWS_POINT, NULL, NULL, NULL);
 
@@ -1289,8 +1297,8 @@ static void ffmpeg_scale_input(ffmpeg_t *handle,
             &handle->video.scaler,
             handle->video.conv_frame->data[0],
             vid->data,
-            handle->params.out_width,
-            handle->params.out_height,
+            dst_w,
+            dst_h,
             handle->video.conv_frame->linesize[0],
             vid->width,
             vid->height,

@@ -12,10 +12,6 @@ $tests = @(
     @{ Name = "CLI glcore"; Cfg = "glcore.cfg"; LogPattern = "glcore" }
 )
 
-# --- Initial cleanup: remove old recordings ---
-Remove-Item recordings\*.mkv -ErrorAction SilentlyContinue
-Remove-Item rec.mkv          -ErrorAction SilentlyContinue
-
 Write-Host ""
 
 # --- Run each test ---
@@ -31,10 +27,8 @@ foreach ($i in 0..($tests.Count - 1)) {
         continue
     }
 
-    # Clean slate: logs, recordings, generated configs, shader caches
+    # Clean slate: logs, generated configs, shader caches
     Remove-Item logs\retroarch.log          -ErrorAction SilentlyContinue
-    Remove-Item recordings\*.mkv            -ErrorAction SilentlyContinue
-    Remove-Item rec.mkv                     -ErrorAction SilentlyContinue
     Remove-Item retroarch.cfg               -ErrorAction SilentlyContinue
     Remove-Item config -Recurse -Force      -ErrorAction SilentlyContinue
     Remove-Item system\pcsx2\cache -Recurse -Force -ErrorAction SilentlyContinue
@@ -95,9 +89,6 @@ foreach ($i in 0..($tests.Count - 1)) {
         } else {
             Write-Host "  [PASS]" -ForegroundColor Green
         }
-        # Remove recordings so next test starts clean
-        Remove-Item recordings\*.mkv -ErrorAction SilentlyContinue
-        Remove-Item rec.mkv          -ErrorAction SilentlyContinue
     } else {
         Write-Host "  [FAIL] No recording found in recordings/." -ForegroundColor Red
     }

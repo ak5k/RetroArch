@@ -7467,7 +7467,7 @@ static bool retroarch_parse_input_and_config(
 
             case 'r':
                strlcpy(rec_st->path, optarg, sizeof(rec_st->path));
-               /* Was guarded by if(enable) - a no-op since 2018 when
+               /* if(enable) no-op since
                 * recording_is_enabled() changed from bool* to bool. */
                rec_st->enable = true;
                break;

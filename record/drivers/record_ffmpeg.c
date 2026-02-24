@@ -1267,8 +1267,7 @@ static void ffmpeg_scale_input(ffmpeg_t *handle,
       const struct record_video_data *vid)
 {
    /* When output was padded to even dimensions, clamp the scaling
-    * destination to the source size so pixels are copied 1:1 and the
-    * extra padding column/row stays black (buffer zeroed on init). */
+    * destination to the source size. */
    unsigned dst_w = (vid->width < handle->params.out_width)
       ? vid->width : handle->params.out_width;
    unsigned dst_h = (vid->height < handle->params.out_height)

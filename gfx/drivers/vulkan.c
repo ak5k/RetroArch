@@ -5483,11 +5483,15 @@ static bool vulkan_frame(void *data, const void *frame,
       )
    {
       /* If streamed readback is active but recording has stopped
-       * (e.g. auto-terminated on resize), clear the flag to avoid
+       * (e.g. auto-terminated on resize), tear down readback to avoid
        * stale readback ops that can cause VK_ERROR_DEVICE_LOST. */
       if (  (vk->flags & VK_FLAG_READBACK_STREAMED)
           && !recording_state_get_ptr()->enable)
+      {
+         scaler_ctx_gen_reset(&vk->readback.scaler_bgr);
+         scaler_ctx_gen_reset(&vk->readback.scaler_rgb);
          vk->flags &= ~VK_FLAG_READBACK_STREAMED;
+      }
 
       if (     (vk->flags & VK_FLAG_READBACK_PENDING)
              || (vk->flags & VK_FLAG_READBACK_STREAMED))

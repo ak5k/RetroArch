@@ -4194,11 +4194,20 @@ static bool gl3_frame(void *data, const void *frame,
    }
    else if (gl->flags & GL3_FLAG_PBO_READBACK_ENABLE)
    {
+      // If recording has stopped, tear down PBO readback 
+      if (!recording_state_get_ptr()->enable)
+      {
+         gl3_deinit_pbo_readback(gl);
+         gl->flags &= ~GL3_FLAG_PBO_READBACK_ENABLE;
+      }
+      else
+      {
 #ifdef HAVE_MENU
-      /* Don't readback if we're in menu mode. */
-      if (!(gl->flags & GL3_FLAG_MENU_TEXTURE_ENABLE))
+         /* Don't readback if we're in menu mode. */
+         if (!(gl->flags & GL3_FLAG_MENU_TEXTURE_ENABLE))
 #endif
-         gl3_pbo_async_readback(gl);
+            gl3_pbo_async_readback(gl);
+      }
    }
 
    if (gl->ctx_driver->swap_buffers)

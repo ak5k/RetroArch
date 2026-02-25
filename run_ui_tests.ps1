@@ -13,7 +13,8 @@
 $ErrorActionPreference = "Stop"
 $timeout = 120000  # 2 min — generous for manual interaction
 
-$core = "cores/pcsx2_libretro.dll"
+$defaultCore    = "cores/pcsx2_libretro.dll"
+$swanstationRom = "D:\PELIT\retroarch\data\roms\psx\ff7_1.cue"
 
 $tests = @(
     @{
@@ -33,12 +34,13 @@ $tests = @(
         Instructions = "Boot, then F1 -> Recording -> Start Recording`nWait ~10s, then F1 -> Stop Recording, then close."
     }
     @{
-        Name       = "UI gl2 (lazy init)"
+        Name       = "UI gl (lazy init)"
         Num        = 5
         Cfg        = "gl2.cfg"
-        Renderer   = "OpenGL"
+        Core       = "cores/swanstation_libretro.dll"
+        Content    = $swanstationRom
         LazyMsg    = "Re.*initialized async PBO readback"
-        Instructions = "Boot, then F1 -> Recording -> Start Recording`nWait ~10s, then F1 -> Stop Recording, then close."
+        Instructions = "Boot FF7, then F1 -> Recording -> Start Recording`nWait ~10s, then F1 -> Stop Recording, then close."
     }
 )
 
@@ -55,18 +57,31 @@ foreach ($i in 0..($tests.Count - 1)) {
         continue
     }
 
+    # Choose core and content for this test
+    $core    = if ($t.Core)    { $t.Core }    else { $defaultCore }
+    $content = if ($t.Content) { $t.Content } else { $null }
+
     # Clean slate: logs, generated configs, shader caches
     Remove-Item logs\retroarch.log          -ErrorAction SilentlyContinue
     Remove-Item retroarch.cfg               -ErrorAction SilentlyContinue
     Remove-Item config -Recurse -Force      -ErrorAction SilentlyContinue
     Remove-Item system\pcsx2\cache -Recurse -Force -ErrorAction SilentlyContinue
 
-    # Set LRPS2 renderer for this test
-    $optDir = "config\LRPS2"
-    $optFile = "$optDir\LRPS2.opt"
-    New-Item -ItemType Directory -Path $optDir -Force | Out-Null
-    Set-Content -Path $optFile -Value "pcsx2_renderer = `"$($t.Renderer)`""
+    # Set core options for this test
+    if ($t.Renderer) {
+        $optDir = "config\LRPS2"
+        $optFile = "$optDir\LRPS2.opt"
+        New-Item -ItemType Directory -Path $optDir -Force | Out-Null
+        Set-Content -Path $optFile -Value "pcsx2_renderer = `"$($t.Renderer)`""
+    }
+    if ($core -match "swanstation") {
+        $optDir = "config\SwanStation"
+        $optFile = "$optDir\SwanStation.opt"
+        New-Item -ItemType Directory -Path $optDir -Force | Out-Null
+        Set-Content -Path $optFile -Value 'swanstation_GPU_Renderer = "Software"'
+    }
 
+    $testStart = Get-Date
     Write-Host "  Launching RetroArch (NO -r flag — lazy init path)" -ForegroundColor Cyan
     $t.Instructions -split "`n" | ForEach-Object { Write-Host "  >>> $_" -ForegroundColor Cyan }
     Write-Host ""
@@ -76,6 +91,7 @@ foreach ($i in 0..($tests.Count - 1)) {
         "--appendconfig", $t.Cfg,
         "-v"
     )
+    if ($content) { $args += $content }
 
     $p = Start-Process -FilePath ".\retroarch.exe" -ArgumentList $args -PassThru
     $exited = $p.WaitForExit($timeout)
@@ -125,30 +141,26 @@ foreach ($i in 0..($tests.Count - 1)) {
         Write-Host "  [WARN] No log file found." -ForegroundColor Red
     }
 
-    # --- Check recordings ---
+    # --- Check recordings (only files created during this test) ---
     $recs = Get-ChildItem recordings\*.mkv -ErrorAction SilentlyContinue |
-            Sort-Object LastWriteTime -Descending
+        Where-Object { $_.LastWriteTime -gt $testStart }
     if ($recs) {
-        $latest = $recs[0]
-        Write-Host "  Recording: $($latest.Name) ($([math]::Round($latest.Length/1KB, 1)) KB)"
-        if ($latest.Length -lt 1024) {
+        $best = $recs | Sort-Object Length -Descending | Select-Object -First 1
+        Write-Host "  Recording: $($best.Name) ($([math]::Round($best.Length/1KB, 1)) KB)"
+        if ($best.Length -lt 1024) {
             Write-Host "  [FAIL] Recording too small — likely not finalized." -ForegroundColor Red
         } else {
             Write-Host "  [PASS]" -ForegroundColor Green
         }
     } else {
-        Write-Host "  [FAIL] No recording found in recordings/." -ForegroundColor Red
+        Write-Host "  [FAIL] No recording found." -ForegroundColor Red
     }
 
     Write-Host ""
 }
 
-# Final cleanup — restore LRPS2 renderer to Auto
-$optDir = "config\LRPS2"
-$optFile = "$optDir\LRPS2.opt"
-if (Test-Path $optDir) {
-    Set-Content -Path $optFile -Value 'pcsx2_renderer = "Auto"'
-}
+# Final cleanup (keep recordings/)
 Remove-Item retroarch.cfg -ErrorAction SilentlyContinue
+Remove-Item config -Recurse -Force -ErrorAction SilentlyContinue
 
 Write-Host "=== All UI tests complete ===" -ForegroundColor Cyan

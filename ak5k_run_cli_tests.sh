@@ -7,6 +7,11 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 MAX_FRAMES="${MAX_FRAMES:-300}"
 REQUIRE_PS1_BIOS_CHECK="${REQUIRE_PS1_BIOS_CHECK:-1}"
+BUILD_RETROARCH="${BUILD_RETROARCH:-0}"
+FORCE_SYSTEM_FFMPEG="${FORCE_SYSTEM_FFMPEG:-1}"
+CLEAN_BUILD_ENV="${CLEAN_BUILD_ENV:-1}"
+INSTALL_LINUX_BUILD_DEPS="${INSTALL_LINUX_BUILD_DEPS:-1}"
+AK5K_WAYLAND_ONLY=0
 
 # Detect native architecture
 NATIVE_ARCH="$(uname -m)"
@@ -34,8 +39,8 @@ FALLBACK_LRPS2_CORE="cores/lrps2_libretro.${CORE_EXT}"
 
 PS1_TEST_ROM="${PS1_TEST_ROM:-system/ps1-tests/gpu/animated-triangle/animated-triangle.exe}"
 
-WORKSPACE_SYSTEM_DIR="${WORKSPACE_SYSTEM_DIR:-$PWD/system}"
-WORKSPACE_RECORDINGS_DIR="${WORKSPACE_RECORDINGS_DIR:-$PWD/recordings}"
+WORKSPACE_SYSTEM_DIR="${WORKSPACE_SYSTEM_DIR:-${REPO_ROOT}/system}"
+WORKSPACE_RECORDINGS_DIR="${WORKSPACE_RECORDINGS_DIR:-${REPO_ROOT}/recordings}"
 mkdir -p "${WORKSPACE_SYSTEM_DIR}"
 mkdir -p "${WORKSPACE_RECORDINGS_DIR}"
 
@@ -138,22 +143,26 @@ find_retroarch_bin() {
   return 1
 }
 
-RETROARCH_BIN="$(find_retroarch_bin)"
-if [[ -z "${RETROARCH_BIN}" ]]; then
-  echo "info: no ${TEST_ARCH} RetroArch binary found; attempting auto-build..."
+build_retroarch() {
   case "${AK5K_PLATFORM}" in
     macos)
-      if [[ -x "${REPO_ROOT}/build-macos.sh" ]]; then
-        "${REPO_ROOT}/build-macos.sh"
+      if [[ -x "${REPO_ROOT}/ak5k_build_macos.sh" ]]; then
+        "${REPO_ROOT}/ak5k_build_macos.sh"
       else
-        echo "error: build-macos.sh not found" >&2; exit 1
+        echo "error: ak5k_build_macos.sh not found" >&2; exit 1
       fi
       ;;
     linux)
-      if [[ -f "${REPO_ROOT}/Makefile" ]]; then
-        make -C "${REPO_ROOT}" -j"$(nproc 2>/dev/null || echo 4)"
+      if [[ -x "${REPO_ROOT}/ak5k_build_linux.sh" ]]; then
+        "${REPO_ROOT}/ak5k_build_linux.sh"
+
+        if [[ -f "${REPO_ROOT}/config.mk" ]] &&
+           grep -Eq '^HAVE_X11 = 0' "${REPO_ROOT}/config.mk" &&
+           grep -Eq '^HAVE_WAYLAND = 1' "${REPO_ROOT}/config.mk"; then
+          AK5K_WAYLAND_ONLY=1
+        fi
       else
-        echo "error: no build system found for Linux" >&2; exit 1
+        echo "error: ak5k_build_linux.sh not found" >&2; exit 1
       fi
       ;;
     windows)
@@ -171,6 +180,17 @@ if [[ -z "${RETROARCH_BIN}" ]]; then
       exit 1
       ;;
   esac
+}
+
+RETROARCH_BIN="$(find_retroarch_bin)"
+if [[ "${BUILD_RETROARCH}" == "1" || -z "${RETROARCH_BIN}" ]]; then
+  if [[ -n "${RETROARCH_BIN}" ]]; then
+    echo "info: building RetroArch before tests (BUILD_RETROARCH=${BUILD_RETROARCH}) ..."
+  else
+    echo "info: no ${TEST_ARCH} RetroArch binary found; attempting auto-build..."
+  fi
+
+  build_retroarch
 
   RETROARCH_BIN="$(find_retroarch_bin)"
 
@@ -311,6 +331,13 @@ run_test() {
   local test_cfg
   test_cfg="$(mktemp "${TMPDIR:-/tmp}/ra-test-cfg.XXXXXX")"
   cp -f "${cfg}" "${test_cfg}"
+  printf 'system_directory = "%s"\n' "${WORKSPACE_SYSTEM_DIR}" >> "${test_cfg}"
+  printf 'recording_output_directory = "%s"\n' "${WORKSPACE_RECORDINGS_DIR}" >> "${test_cfg}"
+
+  if [[ "${AK5K_PLATFORM}" == "linux" && "${AK5K_WAYLAND_ONLY}" == "1" ]]; then
+    printf 'video_context_driver = "wayland"\n' >> "${test_cfg}"
+    printf 'input_driver = "udev"\n' >> "${test_cfg}"
+  fi
 
   touch .test_start_marker
 

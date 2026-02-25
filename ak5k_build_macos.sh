@@ -2,9 +2,9 @@
 #
 # Build RetroArch for macOS with ffmpeg/x264 support.
 #
-#   BUILD_ARCH=universal ./build-macos.sh     (default)
-#   BUILD_ARCH=arm64 ./build-macos.sh
-#   ENABLE_FFMPEG=0 ./build-macos.sh          (skip ffmpeg)
+#   BUILD_ARCH=universal ./ak5k_build_macos.sh     (default)
+#   BUILD_ARCH=arm64 ./ak5k_build_macos.sh
+#   ENABLE_FFMPEG=0 ./ak5k_build_macos.sh          (skip ffmpeg)
 #
 
 set -euo pipefail

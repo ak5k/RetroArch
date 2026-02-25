@@ -251,10 +251,10 @@ ak5k_prepare_test_dependencies() {
     echo "warning: failed to download swanstation core" >&2
   fi
 
-  if ak5k_download_core "lrps2_libretro" "${lrps2_core_path}"; then
+  if ak5k_download_core "pcsx2_libretro" "${lrps2_core_path}"; then
     echo "info: downloaded ${lrps2_core_path}"
-  elif ak5k_download_core "pcsx2_libretro" "${fallback_lrps2_core_path}"; then
-    echo "info: downloaded ${fallback_lrps2_core_path} (LRPS2 fallback)"
+  elif ak5k_download_core "lrps2_libretro" "${fallback_lrps2_core_path}"; then
+    echo "info: downloaded ${fallback_lrps2_core_path} (lrps2 fallback)"
   else
     echo "warning: could not download lrps2/pcsx2 core from buildbot" >&2
   fi

@@ -28,9 +28,9 @@ source "${AK5K_SETUP_LIB}"
 AK5K_PLATFORM="$(ak5k_detect_platform)"
 CORE_EXT="$(ak5k_core_ext)"
 
-DEFAULT_CORE="${DEFAULT_CORE:-cores/lrps2_libretro.${CORE_EXT}}"
+DEFAULT_CORE="${DEFAULT_CORE:-cores/pcsx2_libretro.${CORE_EXT}}"
 SWANSTATION_CORE="${SWANSTATION_CORE:-cores/swanstation_libretro.${CORE_EXT}}"
-FALLBACK_LRPS2_CORE="cores/pcsx2_libretro.${CORE_EXT}"
+FALLBACK_LRPS2_CORE="cores/lrps2_libretro.${CORE_EXT}"
 
 PS1_TEST_ROM="${PS1_TEST_ROM:-system/ps1-tests/gpu/animated-triangle/animated-triangle.exe}"
 
@@ -156,6 +156,16 @@ if [[ -z "${RETROARCH_BIN}" ]]; then
         echo "error: no build system found for Linux" >&2; exit 1
       fi
       ;;
+    windows)
+      # MSYS2/MinGW build: ./configure && make (per libretro compilation docs)
+      pushd "${REPO_ROOT}" > /dev/null
+      if [[ ! -f config.mk ]]; then
+        echo "info: running ./configure ..."
+        ./configure
+      fi
+      make -j"$(nproc 2>/dev/null || echo 4)"
+      popd > /dev/null
+      ;;
     *)
       echo "error: auto-build not supported on ${AK5K_PLATFORM}. Set RA_BIN=/path/to/retroarch." >&2
       exit 1
@@ -176,13 +186,11 @@ if ! binary_has_arch "${RETROARCH_BIN}"; then
 fi
 
 run_retroarch() {
-  local env_prefix=(env "LIBRETRO_SYSTEM_DIRECTORY=${WORKSPACE_SYSTEM_DIR}")
-
   if [[ "${AK5K_PLATFORM}" == "macos" && "${TEST_ARCH}" != "${NATIVE_ARCH}" ]]; then
     # Rosetta translation on macOS
-    "${env_prefix[@]}" arch "-${TEST_ARCH}" "${RETROARCH_BIN}" "$@"
+    arch "-${TEST_ARCH}" "${RETROARCH_BIN}" "$@"
   else
-    "${env_prefix[@]}" "${RETROARCH_BIN}" "$@"
+    "${RETROARCH_BIN}" "$@"
   fi
 }
 
@@ -298,23 +306,18 @@ run_test() {
     printf 'swanstation_GPU_Renderer = "Software"\n' > config/SwanStation/SwanStation.opt
   fi
 
-  local rec_file_abs="${rec_file}"
-  if [[ "${rec_file_abs}" != /* ]]; then
-    rec_file_abs="$PWD/${rec_file_abs}"
-  fi
-  mkdir -p "$(dirname "${rec_file_abs}")"
+  mkdir -p "$(dirname "${rec_file}")"
 
   local test_cfg
   test_cfg="$(mktemp "${TMPDIR:-/tmp}/ra-test-cfg.XXXXXX")"
   cp -f "${cfg}" "${test_cfg}"
-  printf 'recording_output_directory = "%s"\n' "${WORKSPACE_RECORDINGS_DIR}" >> "${test_cfg}"
 
   touch .test_start_marker
 
   local args=()
   args+=("-L" "${core}")
   args+=("--appendconfig" "${test_cfg}")
-  args+=("-r" "${rec_file_abs}")
+  args+=("-r" "${rec_file}")
   args+=("--max-frames=${MAX_FRAMES}")
   args+=("-v")
   if [[ -n "${content}" ]]; then

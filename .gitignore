@@ -289,3 +289,6 @@ pkg/psl1ght/pkg/USRDIR/shaders_cg/
 !pkg/psl1ght/pkg/USRDIR/system/
 
 /recordings/
+/cores/
+/.ffmpeg-build/
+/deps/ffmpeg-universal/

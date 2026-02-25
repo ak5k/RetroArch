@@ -1,4 +1,4 @@
-# run_cli_tests.ps1 — CLI recording tests for fix/recording-hw-cores
+# ak5k_run_cli_tests.ps1 — CLI recording tests for fix/recording-hw-cores
 # Runs Test 1 (vulkan), Test 2 (glcore), and Test 3 (gl) from the test plan.
 
 $ErrorActionPreference = "Stop"

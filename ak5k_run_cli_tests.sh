@@ -4,6 +4,7 @@
 set -u
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "${REPO_ROOT}"
 
 MAX_FRAMES="${MAX_FRAMES:-300}"
 REQUIRE_PS1_BIOS_CHECK="${REQUIRE_PS1_BIOS_CHECK:-1}"
@@ -39,8 +40,8 @@ FALLBACK_LRPS2_CORE="cores/lrps2_libretro.${CORE_EXT}"
 
 PS1_TEST_ROM="${PS1_TEST_ROM:-system/ps1-tests/gpu/animated-triangle/animated-triangle.exe}"
 
-WORKSPACE_SYSTEM_DIR="${WORKSPACE_SYSTEM_DIR:-${REPO_ROOT}/system}"
-WORKSPACE_RECORDINGS_DIR="${WORKSPACE_RECORDINGS_DIR:-${REPO_ROOT}/recordings}"
+WORKSPACE_SYSTEM_DIR="${WORKSPACE_SYSTEM_DIR:-system}"
+WORKSPACE_RECORDINGS_DIR="${WORKSPACE_RECORDINGS_DIR:-recordings}"
 mkdir -p "${WORKSPACE_SYSTEM_DIR}"
 mkdir -p "${WORKSPACE_RECORDINGS_DIR}"
 
@@ -328,11 +329,8 @@ run_test() {
 
   mkdir -p "$(dirname "${rec_file}")"
 
-  local test_cfg
-  test_cfg="$(mktemp "${TMPDIR:-/tmp}/ra-test-cfg.XXXXXX")"
+  local test_cfg=".ra-test-cfg-${index}.cfg"
   cp -f "${cfg}" "${test_cfg}"
-  printf 'system_directory = "%s"\n' "${WORKSPACE_SYSTEM_DIR}" >> "${test_cfg}"
-  printf 'recording_output_directory = "%s"\n' "${WORKSPACE_RECORDINGS_DIR}" >> "${test_cfg}"
 
   if [[ "${AK5K_PLATFORM}" == "linux" && "${AK5K_WAYLAND_ONLY}" == "1" ]]; then
     printf 'video_context_driver = "wayland"\n' >> "${test_cfg}"

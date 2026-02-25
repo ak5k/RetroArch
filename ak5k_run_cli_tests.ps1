@@ -14,9 +14,9 @@ if (-not (Test-Path $shell)) {
 
 # Convert the repo root to an MSYS2 path  (D:\foo\bar  →  /d/foo/bar)
 $repoWin  = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$repoPosix = "/" + ($repoWin -replace '\\','/' -replace '^([A-Za-z]):','$1').ToLower()
-# fix drive letter:  /d/...
-$repoPosix = $repoPosix -replace '^/([a-z])/', '/$1/'
+$repoPosix = "/" + ($repoWin -replace '\\','/' -replace '^([A-Za-z]):','$1')
+# Lowercase only the drive letter:  /D/...  →  /d/...
+$repoPosix = $repoPosix -replace '^/([A-Z])/', { '/' + $_.Groups[1].Value.ToLower() + '/' }
 
 $scriptPath = "$repoPosix/ak5k_run_cli_tests.sh"
 

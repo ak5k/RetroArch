@@ -6,6 +6,12 @@ set -u
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${REPO_ROOT}"
 
+# Clean up temp files on exit/interrupt
+cleanup() {
+  rm -f .ra-test-cfg-*.cfg .test_start_marker
+}
+trap cleanup EXIT
+
 MAX_FRAMES="${MAX_FRAMES:-300}"
 REQUIRE_PS1_BIOS_CHECK="${REQUIRE_PS1_BIOS_CHECK:-1}"
 BUILD_RETROARCH="${BUILD_RETROARCH:-0}"
@@ -23,7 +29,7 @@ case "$(uname -s)" in
   *)      TEST_ARCH="${TEST_ARCH:-${NATIVE_ARCH}}" ;;
 esac
 
-AK5K_SETUP_LIB="${AK5K_SETUP_LIB:-$PWD/ak5k_test_env_setup.sh}"
+AK5K_SETUP_LIB="${AK5K_SETUP_LIB:-./ak5k_test_env_setup.sh}"
 if [[ ! -f "${AK5K_SETUP_LIB}" ]]; then
   echo "error: missing shared setup script: ${AK5K_SETUP_LIB}" >&2
   exit 1
@@ -79,6 +85,7 @@ binary_has_arch() {
       file_out="$(file -b "${bin_path}" 2>/dev/null || true)"
       case "${wanted_arch}" in
         x86_64|amd64)  [[ "${file_out}" == *"PE32+"* ]] ;;
+        i?86|i386)     [[ "${file_out}" == *"PE32 "* ]] ;;
         *)             [[ "${file_out}" == *"PE32"* ]] ;;
       esac
       ;;
@@ -147,19 +154,19 @@ find_retroarch_bin() {
 build_retroarch() {
   case "${AK5K_PLATFORM}" in
     macos)
-      if [[ -x "${REPO_ROOT}/ak5k_build_macos.sh" ]]; then
-        "${REPO_ROOT}/ak5k_build_macos.sh"
+      if [[ -x ./ak5k_build_macos.sh ]]; then
+        ./ak5k_build_macos.sh
       else
         echo "error: ak5k_build_macos.sh not found" >&2; exit 1
       fi
       ;;
     linux)
-      if [[ -x "${REPO_ROOT}/ak5k_build_linux.sh" ]]; then
-        "${REPO_ROOT}/ak5k_build_linux.sh"
+      if [[ -x ./ak5k_build_linux.sh ]]; then
+        ./ak5k_build_linux.sh
 
-        if [[ -f "${REPO_ROOT}/config.mk" ]] &&
-           grep -Eq '^HAVE_X11 = 0' "${REPO_ROOT}/config.mk" &&
-           grep -Eq '^HAVE_WAYLAND = 1' "${REPO_ROOT}/config.mk"; then
+        if [[ -f config.mk ]] &&
+           grep -Eq '^HAVE_X11 = 0' config.mk &&
+           grep -Eq '^HAVE_WAYLAND = 1' config.mk; then
           AK5K_WAYLAND_ONLY=1
         fi
       else
@@ -168,13 +175,11 @@ build_retroarch() {
       ;;
     windows)
       # MSYS2/MinGW build: ./configure && make (per libretro compilation docs)
-      pushd "${REPO_ROOT}" > /dev/null
       if [[ ! -f config.mk ]]; then
         echo "info: running ./configure ..."
         ./configure
       fi
       make -j"$(nproc 2>/dev/null || echo 4)"
-      popd > /dev/null
       ;;
     *)
       echo "error: auto-build not supported on ${AK5K_PLATFORM}. Set RA_BIN=/path/to/retroarch." >&2

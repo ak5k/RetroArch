@@ -56,6 +56,7 @@ foreach ($i in 0..($tests.Count - 1)) {
 
     $recFile = $t.RecFile
     New-Item -ItemType Directory -Path (Split-Path $recFile) -Force | Out-Null
+    $testStart = Get-Date
     $args = @(
         "-L", $core,
         "--appendconfig", $t.Cfg,
@@ -103,16 +104,22 @@ foreach ($i in 0..($tests.Count - 1)) {
     }
 
     # --- Check recording ---
-    if (Test-Path $recFile) {
-        $rec = Get-Item $recFile
-        Write-Host "  Recording: $($rec.Name) ($([math]::Round($rec.Length/1KB, 1)) KB)"
-        if ($rec.Length -lt 1024) {
+    # LRPS2 reinits and restarts recording, so the driver file (vulkan.mkv etc.)
+    # will be tiny. The real recording is the latest LRPS2-YYMMDD-HHMMSS.mkv.
+    # Find the newest recording created during this test.
+    $recs = Get-ChildItem recordings\*.mkv -ErrorAction SilentlyContinue |
+        Where-Object { $_.LastWriteTime -gt $testStart } |
+        Sort-Object Length -Descending
+    if ($recs) {
+        $best = $recs | Select-Object -First 1
+        Write-Host "  Recording: $($best.Name) ($([math]::Round($best.Length/1KB, 1)) KB)"
+        if ($best.Length -lt 1024) {
             Write-Host "  [FAIL] Recording too small — likely not finalized." -ForegroundColor Red
         } else {
             Write-Host "  [PASS]" -ForegroundColor Green
         }
     } else {
-        Write-Host "  [FAIL] No recording found ($recFile)." -ForegroundColor Red
+        Write-Host "  [FAIL] No recording found." -ForegroundColor Red
     }
 
     Write-Host ""

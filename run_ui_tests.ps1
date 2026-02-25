@@ -1,6 +1,6 @@
 # run_ui_tests.ps1 — UI recording tests for fix/recording-hw-cores
-# Runs Tests 3-4 from the test plan.
-# Tests 3-4: LAZY INIT path — the key fix in this PR.
+# Runs Tests 3-5 from the test plan.
+# Tests 3-5: LAZY INIT path — the key fix in this PR.
 #
 # Manual steps for Tests 3-4 (UI record):
 #   1. Wait for LRPS2 to boot to PS2 BIOS menu
@@ -20,6 +20,7 @@ $tests = @(
         Name       = "UI vulkan (lazy init)"
         Num        = 3
         Cfg        = "vulkan.cfg"
+        Renderer   = "Auto"
         LazyMsg    = "Re.*initialized async readback"
         Instructions = "Boot, then F1 -> Recording -> Start Recording`nWait ~10s, then F1 -> Stop Recording, then close."
     }
@@ -27,6 +28,15 @@ $tests = @(
         Name       = "UI glcore (lazy init)"
         Num        = 4
         Cfg        = "glcore.cfg"
+        Renderer   = "Auto"
+        LazyMsg    = "Re.*initialized async PBO readback"
+        Instructions = "Boot, then F1 -> Recording -> Start Recording`nWait ~10s, then F1 -> Stop Recording, then close."
+    }
+    @{
+        Name       = "UI gl2 (lazy init)"
+        Num        = 5
+        Cfg        = "gl2.cfg"
+        Renderer   = "OpenGL"
         LazyMsg    = "Re.*initialized async PBO readback"
         Instructions = "Boot, then F1 -> Recording -> Start Recording`nWait ~10s, then F1 -> Stop Recording, then close."
     }
@@ -50,6 +60,12 @@ foreach ($i in 0..($tests.Count - 1)) {
     Remove-Item retroarch.cfg               -ErrorAction SilentlyContinue
     Remove-Item config -Recurse -Force      -ErrorAction SilentlyContinue
     Remove-Item system\pcsx2\cache -Recurse -Force -ErrorAction SilentlyContinue
+
+    # Set LRPS2 renderer for this test
+    $optDir = "config\LRPS2"
+    $optFile = "$optDir\LRPS2.opt"
+    New-Item -ItemType Directory -Path $optDir -Force | Out-Null
+    Set-Content -Path $optFile -Value "pcsx2_renderer = `"$($t.Renderer)`""
 
     Write-Host "  Launching RetroArch (NO -r flag — lazy init path)" -ForegroundColor Cyan
     $t.Instructions -split "`n" | ForEach-Object { Write-Host "  >>> $_" -ForegroundColor Cyan }
@@ -127,7 +143,12 @@ foreach ($i in 0..($tests.Count - 1)) {
     Write-Host ""
 }
 
-# Final cleanup
+# Final cleanup — restore LRPS2 renderer to Auto
+$optDir = "config\LRPS2"
+$optFile = "$optDir\LRPS2.opt"
+if (Test-Path $optDir) {
+    Set-Content -Path $optFile -Value 'pcsx2_renderer = "Auto"'
+}
 Remove-Item retroarch.cfg -ErrorAction SilentlyContinue
 
 Write-Host "=== All UI tests complete ===" -ForegroundColor Cyan

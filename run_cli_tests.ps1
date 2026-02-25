@@ -1,5 +1,5 @@
 # run_cli_tests.ps1 — CLI recording tests for fix/recording-hw-cores
-# Runs Test 1 (vulkan) and Test 2 (glcore) from the test plan.
+# Runs Test 1 (vulkan), Test 2 (glcore), and Test 3 (gl2) from the test plan.
 
 $ErrorActionPreference = "Stop"
 $timeout = 60000  # ms to wait for RetroArch to exit
@@ -8,8 +8,9 @@ $core = "cores/pcsx2_libretro.dll"
 $maxFrames = 300
 
 $tests = @(
-    @{ Name = "CLI vulkan"; Cfg = "vulkan.cfg"; LogPattern = "vulkan" }
-    @{ Name = "CLI glcore"; Cfg = "glcore.cfg"; LogPattern = "glcore" }
+    @{ Name = "CLI vulkan"; Cfg = "vulkan.cfg"; LogPattern = "vulkan"; Renderer = "Auto" }
+    @{ Name = "CLI glcore"; Cfg = "glcore.cfg"; LogPattern = "glcore"; Renderer = "Auto" }
+    @{ Name = "CLI gl2";    Cfg = "gl2.cfg";    LogPattern = "gl2";    Renderer = "OpenGL" }
 )
 
 Write-Host ""
@@ -33,6 +34,12 @@ foreach ($i in 0..($tests.Count - 1)) {
     Remove-Item retroarch.cfg               -ErrorAction SilentlyContinue
     Remove-Item config -Recurse -Force      -ErrorAction SilentlyContinue
     Remove-Item system\pcsx2\cache -Recurse -Force -ErrorAction SilentlyContinue
+
+    # Set LRPS2 renderer for this test
+    $optDir = "config\LRPS2"
+    $optFile = "$optDir\LRPS2.opt"
+    New-Item -ItemType Directory -Path $optDir -Force | Out-Null
+    Set-Content -Path $optFile -Value "pcsx2_renderer = `"$($t.Renderer)`""
 
     $args = @(
         "-L", $core,
@@ -97,7 +104,12 @@ foreach ($i in 0..($tests.Count - 1)) {
     Write-Host ""
 }
 
-# Final cleanup
+# Final cleanup — restore LRPS2 renderer to Auto
+$optDir = "config\LRPS2"
+$optFile = "$optDir\LRPS2.opt"
+if (Test-Path $optDir) {
+    Set-Content -Path $optFile -Value 'pcsx2_renderer = "Auto"'
+}
 Remove-Item rec.mkv       -ErrorAction SilentlyContinue
 Remove-Item retroarch.cfg -ErrorAction SilentlyContinue
 
